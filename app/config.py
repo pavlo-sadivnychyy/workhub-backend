@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # Database
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/workhub"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 40
     
@@ -76,7 +76,10 @@ class Settings(BaseSettings):
     SENTRY_DSN: Optional[str] = None
     
     # Frontend URL
-    FRONTEND_URL: str = "https://workhub.ua"
+    FRONTEND_URL: str = "http://localhost:3000"
+    
+    # CORS
+    CORS_ORIGINS: str = "*"  # Comma-separated list of allowed origins
     
     # Environment
     ENVIRONMENT: str = "development"  # development, staging, production

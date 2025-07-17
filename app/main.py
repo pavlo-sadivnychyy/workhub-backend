@@ -40,13 +40,39 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Configure CORS
+origins = []
+
+# Add configured origins
+if settings.CORS_ORIGINS:
+    origins_list = settings.CORS_ORIGINS.split(",")
+    origins.extend([origin.strip() for origin in origins_list])
+
+# Add frontend URL
+if settings.FRONTEND_URL:
+    origins.append(settings.FRONTEND_URL)
+
+# In development, allow all origins
+if settings.ENVIRONMENT == "development":
+    origins = ["*"]
+
+# Add localhost for development
+if settings.ENVIRONMENT != "production":
+    origins.extend([
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL] if settings.ENVIRONMENT == "production" else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Add Sentry middleware
