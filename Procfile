@@ -1,1 +1,1 @@
-web: python scripts/init_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+web: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
