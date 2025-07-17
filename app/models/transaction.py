@@ -63,7 +63,7 @@ class Transaction(Base):
     
     # Additional info
     description = Column(Text)
-    metadata = Column(Text)  # JSON string for additional data
+    extra_data = Column(Text)  # JSON string for additional data
     
     # Timestamps
     created_at = Column(DateTime, default=func.now())

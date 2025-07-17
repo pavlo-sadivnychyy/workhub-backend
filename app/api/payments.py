@@ -125,7 +125,7 @@ async def fund_milestone(
         amount=milestone_data.amount,
         monobank_invoice_id=invoice["invoice_id"],
         description=milestone_data.description or f"Milestone: {milestone.get('title')}",
-        metadata=json.dumps({"milestone_id": milestone_data.milestone_id})
+        meta_data=json.dumps({"milestone_id": milestone_data.milestone_id})
     )
     
     db.add(transaction)
@@ -181,7 +181,7 @@ async def request_withdrawal(
         net_amount=withdrawal.amount - withdrawal.fee,
         status=TransactionStatus.PROCESSING,
         description=f"Withdrawal to card {result['card']}",
-        metadata=json.dumps({
+        meta_data=json.dumps({
             "card": result["card"],
             "is_express": withdrawal.is_express
         })
@@ -313,7 +313,7 @@ async def monobank_webhook(
             
         elif transaction.transaction_type == TransactionType.CONNECTS_PURCHASE:
             # Add connects to user
-            metadata = json.loads(transaction.metadata or "{}")
+            metadata = json.loads(transaction.meta_data or "{}")
             connects_amount = metadata.get("connects_amount", 0)
             
             user_result = await db.execute(select(User).where(User.id == transaction.payer_id))
@@ -322,7 +322,7 @@ async def monobank_webhook(
             
         elif transaction.transaction_type == TransactionType.SUBSCRIPTION_PAYMENT:
             # Activate subscription
-            metadata = json.loads(transaction.metadata or "{}")
+            metadata = json.loads(transaction.meta_data or "{}")
             subscription_type = metadata.get("subscription_type")
             months = metadata.get("months", 1)
             
@@ -338,7 +338,7 @@ async def monobank_webhook(
             
         elif transaction.transaction_type == TransactionType.PROFILE_PROMOTION:
             # Activate profile promotion
-            metadata = json.loads(transaction.metadata or "{}")
+            metadata = json.loads(transaction.meta_data or "{}")
             weeks = metadata.get("weeks", 1)
             
             user_result = await db.execute(select(User).where(User.id == transaction.payer_id))
