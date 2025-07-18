@@ -5,6 +5,8 @@ from alembic import context
 import os
 import sys
 from pathlib import Path
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -17,8 +19,20 @@ from app.config import settings
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set the database URL from environment
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("+asyncpg", ""))
+# Get the database URL and convert for Alembic (sync version)
+database_url = settings.DATABASE_URL
+
+# Convert async URL to sync URL for Alembic
+if database_url.startswith("postgresql+asyncpg://"):
+    database_url = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
+elif database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+# Handle Railway's DATABASE_URL which might have postgres:// prefix
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -53,6 +67,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -66,15 +82,21 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    configuration = config.get_section(config.config_ini_section)
+    configuration['sqlalchemy.url'] = database_url
+    
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():
