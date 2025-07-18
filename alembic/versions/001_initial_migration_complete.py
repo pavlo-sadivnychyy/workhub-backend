@@ -1,4 +1,4 @@
-"""Initial migration
+"""Initial migration complete
 
 Revision ID: 001
 Revises: 
@@ -17,7 +17,44 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create users table
+    # Create enum types
+    userrole = postgresql.ENUM('freelancer', 'client', 'both', 'admin', name='userrole')
+    userrole.create(op.get_bind())
+    
+    verificationstatus = postgresql.ENUM('unverified', 'email_verified', 'diia_verified', name='verificationstatus')
+    verificationstatus.create(op.get_bind())
+    
+    subscriptiontype = postgresql.ENUM('free', 'freelancer_plus', name='subscriptiontype')
+    subscriptiontype.create(op.get_bind())
+    
+    projectstatus = postgresql.ENUM('draft', 'open', 'in_progress', 'completed', 'cancelled', 'disputed', name='projectstatus')
+    projectstatus.create(op.get_bind())
+    
+    projecttype = postgresql.ENUM('fixed_price', 'hourly', name='projecttype')
+    projecttype.create(op.get_bind())
+    
+    projectduration = postgresql.ENUM('less_than_week', 'less_than_month', 'one_to_three_months', 'three_to_six_months', 'more_than_six_months', name='projectduration')
+    projectduration.create(op.get_bind())
+    
+    experiencelevel = postgresql.ENUM('entry', 'intermediate', 'expert', name='experiencelevel')
+    experiencelevel.create(op.get_bind())
+    
+    proposalstatus = postgresql.ENUM('pending', 'accepted', 'rejected', 'withdrawn', name='proposalstatus')
+    proposalstatus.create(op.get_bind())
+    
+    transactiontype = postgresql.ENUM('escrow_fund', 'escrow_release', 'escrow_refund', 'milestone_fund', 'milestone_release', 'connects_purchase', 'subscription_payment', 'profile_promotion', 'withdrawal', 'commission', name='transactiontype')
+    transactiontype.create(op.get_bind())
+    
+    transactionstatus = postgresql.ENUM('pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', name='transactionstatus')
+    transactionstatus.create(op.get_bind())
+    
+    paymentmethod = postgresql.ENUM('monobank', 'card', 'bank_transfer', name='paymentmethod')
+    paymentmethod.create(op.get_bind())
+    
+    timeentrystatus = postgresql.ENUM('pending', 'approved', 'rejected', 'paid', name='timeentrystatus')
+    timeentrystatus.create(op.get_bind())
+    
+    # Create tables
     op.create_table('users',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('email', sa.String(length=255), nullable=False),
@@ -56,8 +93,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
-
-    # Create projects table
+    
     op.create_table('projects',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('client_id', sa.Integer(), nullable=False),
@@ -97,8 +133,24 @@ def upgrade() -> None:
     op.create_index(op.f('ix_projects_category'), 'projects', ['category'], unique=False)
     op.create_index(op.f('ix_projects_id'), 'projects', ['id'], unique=False)
     op.create_index(op.f('ix_projects_title'), 'projects', ['title'], unique=False)
-
-    # Create proposals table
+    
+    op.create_table('messages',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('sender_id', sa.Integer(), nullable=False),
+        sa.Column('receiver_id', sa.Integer(), nullable=False),
+        sa.Column('project_id', sa.Integer(), nullable=True),
+        sa.Column('content', sa.Text(), nullable=False),
+        sa.Column('attachments', sa.Text(), nullable=True),
+        sa.Column('is_read', sa.Boolean(), nullable=True),
+        sa.Column('read_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+        sa.ForeignKeyConstraint(['receiver_id'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
     op.create_table('proposals',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('project_id', sa.Integer(), nullable=False),
@@ -117,9 +169,28 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_proposals_id'), 'proposals', ['id'], unique=False)
-
-    # Create transactions table
+    
+    op.create_table('reviews',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('project_id', sa.Integer(), nullable=False),
+        sa.Column('reviewer_id', sa.Integer(), nullable=False),
+        sa.Column('reviewee_id', sa.Integer(), nullable=False),
+        sa.Column('rating', sa.Float(), nullable=False),
+        sa.Column('comment', sa.Text(), nullable=True),
+        sa.Column('quality_rating', sa.Float(), nullable=True),
+        sa.Column('communication_rating', sa.Float(), nullable=True),
+        sa.Column('expertise_rating', sa.Float(), nullable=True),
+        sa.Column('professionalism_rating', sa.Float(), nullable=True),
+        sa.Column('deadline_rating', sa.Float(), nullable=True),
+        sa.Column('would_hire_again', sa.Boolean(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
+        sa.ForeignKeyConstraint(['reviewee_id'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['reviewer_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    
     op.create_table('transactions',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('payer_id', sa.Integer(), nullable=True),
@@ -145,51 +216,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('monobank_invoice_id')
     )
-    op.create_index(op.f('ix_transactions_id'), 'transactions', ['id'], unique=False)
-
-    # Create reviews table
-    op.create_table('reviews',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.Integer(), nullable=False),
-        sa.Column('reviewer_id', sa.Integer(), nullable=False),
-        sa.Column('reviewee_id', sa.Integer(), nullable=False),
-        sa.Column('rating', sa.Float(), nullable=False),
-        sa.Column('comment', sa.Text(), nullable=True),
-        sa.Column('quality_rating', sa.Float(), nullable=True),
-        sa.Column('communication_rating', sa.Float(), nullable=True),
-        sa.Column('expertise_rating', sa.Float(), nullable=True),
-        sa.Column('professionalism_rating', sa.Float(), nullable=True),
-        sa.Column('deadline_rating', sa.Float(), nullable=True),
-        sa.Column('would_hire_again', sa.Boolean(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
-        sa.ForeignKeyConstraint(['reviewee_id'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['reviewer_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_reviews_id'), 'reviews', ['id'], unique=False)
-
-    # Create messages table
-    op.create_table('messages',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('sender_id', sa.Integer(), nullable=False),
-        sa.Column('receiver_id', sa.Integer(), nullable=False),
-        sa.Column('project_id', sa.Integer(), nullable=True),
-        sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('attachments', sa.Text(), nullable=True),
-        sa.Column('is_read', sa.Boolean(), nullable=True),
-        sa.Column('read_at', sa.DateTime(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ),
-        sa.ForeignKeyConstraint(['receiver_id'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_messages_id'), 'messages', ['id'], unique=False)
-
-    # Create time_entries table
+    
     op.create_table('time_entries',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('project_id', sa.Integer(), nullable=False),
@@ -212,38 +239,26 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['transaction_id'], ['transactions.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_time_entries_id'), 'time_entries', ['id'], unique=False)
 
 
 def downgrade() -> None:
-    # Drop all tables
-    op.drop_index(op.f('ix_time_entries_id'), table_name='time_entries')
+    # Drop tables
     op.drop_table('time_entries')
-    op.drop_index(op.f('ix_messages_id'), table_name='messages')
-    op.drop_table('messages')
-    op.drop_index(op.f('ix_reviews_id'), table_name='reviews')
-    op.drop_table('reviews')
-    op.drop_index(op.f('ix_transactions_id'), table_name='transactions')
     op.drop_table('transactions')
-    op.drop_index(op.f('ix_proposals_id'), table_name='proposals')
+    op.drop_table('reviews')
     op.drop_table('proposals')
-    op.drop_index(op.f('ix_projects_title'), table_name='projects')
-    op.drop_index(op.f('ix_projects_id'), table_name='projects')
-    op.drop_index(op.f('ix_projects_category'), table_name='projects')
+    op.drop_table('messages')
     op.drop_table('projects')
-    op.drop_index(op.f('ix_users_username'), table_name='users')
-    op.drop_index(op.f('ix_users_id'), table_name='users')
-    op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
     
-    # Drop enums
+    # Drop enum types
     op.execute('DROP TYPE IF EXISTS userrole')
     op.execute('DROP TYPE IF EXISTS verificationstatus')
     op.execute('DROP TYPE IF EXISTS subscriptiontype')
+    op.execute('DROP TYPE IF EXISTS projectstatus')
     op.execute('DROP TYPE IF EXISTS projecttype')
     op.execute('DROP TYPE IF EXISTS projectduration')
     op.execute('DROP TYPE IF EXISTS experiencelevel')
-    op.execute('DROP TYPE IF EXISTS projectstatus')
     op.execute('DROP TYPE IF EXISTS proposalstatus')
     op.execute('DROP TYPE IF EXISTS transactiontype')
     op.execute('DROP TYPE IF EXISTS transactionstatus')
